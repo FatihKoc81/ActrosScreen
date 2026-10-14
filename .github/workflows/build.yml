@@ -1,1 +1,172 @@
 
+
+name: Android APK Derleme
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - ".github/workflows/build.yml"
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Projeyi al
+        uses: actions/checkout@v4
+
+      - name: Java kur
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: Gradle kur
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: "8.9"
+
+      - name: Android projesini oluştur
+        shell: bash
+        run: |
+          mkdir -p app/src/main/java/com/example/actrosscreen
+
+          cat > settings.gradle <<'EOF'
+          pluginManagement {
+              repositories {
+                  google()
+                  mavenCentral()
+                  gradlePluginPortal()
+              }
+          }
+          dependencyResolutionManagement {
+              repositoriesMode.set(RepositoriesMode.FAIL_ON_PROJECT_REPOS)
+              repositories {
+                  google()
+                  mavenCentral()
+              }
+          }
+          rootProject.name = "ActrosScreen"
+          include(":app")
+          EOF
+
+          cat > build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application' version '8.7.3' apply false
+          }
+          EOF
+
+          cat > app/build.gradle <<'EOF'
+          plugins {
+              id 'com.android.application'
+          }
+
+          android {
+              namespace 'com.example.actrosscreen'
+              compileSdk 35
+
+              defaultConfig {
+                  applicationId 'com.example.actrosscreen'
+                  minSdk 23
+                  targetSdk 28
+                  versionCode 1
+                  versionName '1.0'
+              }
+          }
+          EOF
+
+          cat > app/src/main/AndroidManifest.xml <<'EOF'
+          <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+              <application
+                  android:theme="@android:style/Theme.Material.NoActionBar"
+                  android:label="Actros Screen"
+                  android:usesCleartextTraffic="false">
+                  <activity
+                      android:name="com.example.actrosscreen.MainActivity"
+                      android:exported="true">
+                      <intent-filter>
+                          <action android:name="android.intent.action.MAIN"/>
+                          <category android:name="android.intent.category.LAUNCHER"/>
+                      </intent-filter>
+                  </activity>
+              </application>
+          </manifest>
+          EOF
+
+          cat > app/src/main/java/com/example/actrosscreen/MainActivity.java <<'EOF'
+          package com.example.actrosscreen;
+
+          import android.app.Activity;
+          import android.os.Bundle;
+          import android.content.Intent;
+          import android.net.Uri;
+          import android.graphics.Color;
+          import android.view.Gravity;
+          import android.view.ViewGroup;
+          import android.widget.Button;
+          import android.widget.LinearLayout;
+          import android.widget.TextView;
+
+          public class MainActivity extends Activity {
+              @Override
+              public void onCreate(Bundle state) {
+                  super.onCreate(state);
+
+                  LinearLayout layout = new LinearLayout(this);
+                  layout.setOrientation(LinearLayout.VERTICAL);
+                  layout.setGravity(Gravity.CENTER);
+                  layout.setPadding(28, 28, 28, 28);
+                  layout.setBackgroundColor(Color.rgb(20, 25, 35));
+
+                  TextView title = new TextView(this);
+                  title.setText("ACTROS SCREEN");
+                  title.setTextSize(30);
+                  title.setTextColor(Color.WHITE);
+                  title.setGravity(Gravity.CENTER);
+                  layout.addView(title);
+
+                  TextView info = new TextView(this);
+                  info.setText("Arac ekranı yardımcı uygulaması");
+                  info.setTextColor(Color.LTGRAY);
+                  info.setTextSize(16);
+                  info.setGravity(Gravity.CENTER);
+                  layout.addView(info);
+
+                  addButton(layout, "YouTube'u aç",
+                      "https://www.youtube.com");
+                  addButton(layout, "Haritaları aç",
+                      "https://maps.google.com");
+
+                  setContentView(layout);
+              }
+
+              private void addButton(LinearLayout layout,
+                                    String label, String url) {
+                  Button button = new Button(this);
+                  button.setText(label);
+                  button.setTextSize(18);
+                  LinearLayout.LayoutParams params =
+                      new LinearLayout.LayoutParams(
+                          ViewGroup.LayoutParams.MATCH_PARENT,
+                          ViewGroup.LayoutParams.WRAP_CONTENT);
+                  params.setMargins(0, 16, 0, 0);
+                  layout.addView(button, params);
+
+                  button.setOnClickListener(v -> {
+                      Intent intent = new Intent(
+                          Intent.ACTION_VIEW, Uri.parse(url));
+                      startActivity(intent);
+                  });
+              }
+          }
+          EOF
+
+      - name: APK derle
+        run: gradle --no-daemon assembleDebug
+
+      - name: APK dosyasını yayımla
+        uses: actions/upload-artifact@v4
+        with:
+          name: ActrosScreen-APK
+          path: app/build/outputs/apk/debug/app-debug.apk
